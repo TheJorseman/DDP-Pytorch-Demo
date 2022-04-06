@@ -19,7 +19,7 @@ def train(gpu, args):
     # the init_method as ='tcp://<ip-address>:<port>' after the backend.
     # More useful information can be found in
     # https://yangkky.github.io/2019/07/08/distributed-pytorch-tutorial.html
-
+    print("Init Process Group")
     dist.init_process_group(
         backend='nccl',
         init_method='env://',
@@ -44,6 +44,7 @@ def train(gpu, args):
     train_dataset = torchvision.datasets.MNIST(
         root="./mnist_dataset", train=True, transform=transform, download=True
     )
+    print("Get Sampler")
     # Ensures that each process gets differnt data from the batch.
     train_sampler = torch.utils.data.distributed.DistributedSampler(
         train_dataset, num_replicas=args.world_size, rank=rank
@@ -59,11 +60,12 @@ def train(gpu, args):
         sampler=train_sampler
     )
 
-
+    print("Model Load")
     # load the model to the specified device, gpu-0 in our case
     model = AE(input_shape=784).cuda(args.gpus)
+
     model = torch.nn.parallel.DistributedDataParallel(
-        model, device_ids=[args.gpus], find_unused_parameters=True
+        model, device_ids=[rank], find_unused_parameters=True
     )
     # create an optimizer object
     # Adam optimizer with learning rate 1e-3
@@ -71,6 +73,7 @@ def train(gpu, args):
     # Loss function
     criterion = nn.MSELoss()
 
+    print("Train Loop")
     for epoch in range(args.epochs):
         loss = 0
         for batch_features, _ in train_loader:
@@ -110,6 +113,10 @@ def train(gpu, args):
                 'epoch': args.epochs,
             }
             torch.save(dict_model, './model.pth')
+
+def cleanup():
+    dist.destroy_process_group()
+
 
 def main():
     parser = ArgumentParser()

@@ -35,5 +35,7 @@ if __name__ == "__main__":
     print("ip_adress is", args.ip_adress)
     os.environ['MASTER_PORT'] = '8888'
     os.environ['WORLD_SIZE'] = str(args.world_size)
+    os.environ['NCCL_P2P_DISABLE'] = str(1)
+
     # nprocs: number of process which is equal to args.ngpu here
     mp.spawn(train, nprocs=args.ngpus, args=(args,))

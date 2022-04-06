@@ -8,6 +8,7 @@ import torch.distributed as dist
 def train(gpu, args):
     args.gpus = gpu
     print('gpu:',gpu)
+    print(args)
     rank = args.local_ranks * args.ngpus + gpu
     # rank calculation for each process per gpu so that they can be
     # identified uniquely.
@@ -51,10 +52,10 @@ def train(gpu, args):
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         # calculate the batch size for each process in the node.
-        batch_size=int(128/args.ngpus),
+        batch_size=int(1024/args.ngpus),
         shuffle=(train_sampler is None),
-        num_workers=4,
-        pin_memory=True,
+        num_workers=0,
+        pin_memory=False,
         sampler=train_sampler
     )
 
@@ -87,9 +88,10 @@ def train(gpu, args):
             # compute training reconstruction loss
             train_loss = criterion(outputs, batch_features)
 
+            print("Before backward")
             # compute accumulated gradients
             train_loss.backward()
-
+            print("After Backward")
             # perform parameter update based on current gradients
             optimizer.step()
 

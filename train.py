@@ -21,7 +21,7 @@ def train(gpu, args):
     # https://yangkky.github.io/2019/07/08/distributed-pytorch-tutorial.html
     print("Init Process Group")
     dist.init_process_group(
-        backend='nccl',
+        backend='gloo',
         init_method='env://',
         world_size=args.world_size,
         rank=rank
@@ -33,10 +33,7 @@ def train(gpu, args):
     # the nodes. Then it will progress form there.
 
     # set the gpu for each processes
-    print(args.gpus)
     torch.cuda.set_device(args.gpus)
-
-
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor()
     ])
@@ -44,7 +41,6 @@ def train(gpu, args):
     train_dataset = torchvision.datasets.MNIST(
         root="./mnist_dataset", train=True, transform=transform, download=True
     )
-    print("Get Sampler")
     # Ensures that each process gets differnt data from the batch.
     train_sampler = torch.utils.data.distributed.DistributedSampler(
         train_dataset, num_replicas=args.world_size, rank=rank
@@ -59,51 +55,36 @@ def train(gpu, args):
         pin_memory=False,
         sampler=train_sampler
     )
-
-    print("Model Load")
     # load the model to the specified device, gpu-0 in our case
     model = AE(input_shape=784).cuda(args.gpus)
-
-    model = torch.nn.parallel.DistributedDataParallel(
-        model, device_ids=[rank], find_unused_parameters=True
-    )
+    print(model)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpus])
     # create an optimizer object
     # Adam optimizer with learning rate 1e-3
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     # Loss function
     criterion = nn.MSELoss()
-
-    print("Train Loop")
     for epoch in range(args.epochs):
         loss = 0
         for batch_features, _ in train_loader:
             # reshape mini-batch data to [N, 784] matrix
             # load it to the active device
             batch_features = batch_features.view(-1, 784).cuda(args.gpus)
-
             # reset the gradients back to zero
             # PyTorch accumulates gradients on subsequent backward passes
             optimizer.zero_grad()
-
             # compute reconstructions
             outputs = model(batch_features)
-
             # compute training reconstruction loss
             train_loss = criterion(outputs, batch_features)
-
-            print("Before backward")
             # compute accumulated gradients
             train_loss.backward()
-            print("After Backward")
             # perform parameter update based on current gradients
             optimizer.step()
-
             # add the mini-batch training loss to epoch loss
             loss += train_loss.item()
-
         # compute the epoch training loss
         loss = loss / len(train_loader)
-
         # display the epoch training loss
         print("epoch: {}/{}, loss = {:.6f}".format(epoch+1, args.epochs, loss))
         if rank == 0:
@@ -113,6 +94,7 @@ def train(gpu, args):
                 'epoch': args.epochs,
             }
             torch.save(dict_model, './model.pth')
+    cleanup()
 
 def cleanup():
     dist.destroy_process_group()

@@ -1,8 +1,10 @@
+from time import time
 import torch
 import torch.nn as nn
 import torchvision
 from argparse import ArgumentParser
 from model import AE
+import timeit 
 
 def train(gpu, args):
     transform = torchvision.transforms.Compose([
@@ -54,7 +56,9 @@ def main():
     parser.add_argument('--epochs', default=2, type=int, metavar='N',
                         help='number of total epochs to run')
     args = parser.parse_args()
+    ini = timeit.default_timer()
     train(0, args)
+    print("Total time ", timeit.default_timer() - ini)
 
 if __name__ == '__main__':
     main()

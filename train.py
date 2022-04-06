@@ -6,7 +6,7 @@ from model import AE
 import torch.distributed as dist
 
 def train(gpu, args):
-    args.gpu = gpu
+    args.gpus = gpu
     print('gpu:',gpu)
     rank = args.local_ranks * args.ngpus + gpu
     # rank calculation for each process per gpu so that they can be
@@ -32,7 +32,8 @@ def train(gpu, args):
     # the nodes. Then it will progress form there.
 
     # set the gpu for each processes
-    torch.cuda.set_device(args.gpu)
+    print(args.gpus)
+    torch.cuda.set_device(args.gpus)
 
 
     transform = torchvision.transforms.Compose([
@@ -59,9 +60,9 @@ def train(gpu, args):
 
 
     # load the model to the specified device, gpu-0 in our case
-    model = AE(input_shape=784).cuda(args.gpu)
+    model = AE(input_shape=784).cuda(args.gpus)
     model = torch.nn.parallel.DistributedDataParallel(
-        model, device_ids=[args.gpu], find_unused_parameters=True
+        model, device_ids=[args.gpus], find_unused_parameters=True
     )
     # create an optimizer object
     # Adam optimizer with learning rate 1e-3

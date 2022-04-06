@@ -59,7 +59,7 @@ def train(gpu, args):
 
 
     # load the model to the specified device, gpu-0 in our case
-    model = AE(input_shape=784).cuda(args.gpus)
+    model = AE(input_shape=784).cuda(args.gpu)
     model = torch.nn.parallel.DistributedDataParallel(
         model, device_ids=[args.gpu], find_unused_parameters=True
     )
